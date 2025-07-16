@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>入店音アプリ</title>
+    <!-- Tailwind CSS CDNを読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center transform transition-all duration-300 hover:scale-105">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-6">お客様ご来店！</h1>
+        
+        <!-- ボタン -->
+        <button id="playButton" 
+                class="bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold py-5 px-10 rounded-full text-2xl 
+                       shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition duration-300 ease-in-out 
+                       focus:outline-none focus:ring-4 focus:ring-orange-300 active:bg-red-700">
+            入店音を鳴らす
+        </button>
+
+        <!-- メッセージ表示エリア -->
+        <p id="message" class="mt-6 text-lg text-gray-600"></p>
+    </div>
+
+    <script>
+        // 再生したい音声ファイルのURLリスト
+        // !!重要!!: ここにあなたの音声ファイルのURLを記述してください。
+        // 同じフォルダに置く場合は、ファイル名だけでもOKです (例: "sound01.mp3")
+        // ウェブ上に置く場合は、完全なURL (例: "https://example.com/sounds/sound01.mp3")
+        const entrySoundUrls = [
+            "sound01.mp3", // あなたの音声ファイル1
+            "sound02.mp3", // あなたの音声ファイル2
+            "sound03.mp3"  // あなたの音声ファイル3
+            // 必要に応じて追加
+        ];
+
+        const playButton = document.getElementById('playButton');
+        const messageDisplay = document.getElementById('message');
+        let currentAudio = null; // 現在再生中のAudioオブジェクトを保持
+
+        // 音声ファイルを事前にロード（オプションだが推奨）
+        // 特にファイルサイズが大きい場合は、再生前にロードしておくことで遅延を防げます。
+        const loadedAudios = {};
+        async function preloadSounds() {
+            messageDisplay.textContent = "音声を準備中...";
+            playButton.disabled = true; // 準備中はボタンを無効化
+            playButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+            for (const url of entrySoundUrls) {
+                try {
+                    const audio = new Audio(url);
+                    // メタデータがロードされるまで待機
+                    await new Promise((resolve, reject) => {
+                        audio.addEventListener('canplaythrough', resolve, { once: true });
+                        audio.addEventListener('error', reject, { once: true });
+                        audio.load(); // ロードを開始
+                    });
+                    loadedAudios[url] = audio;
+                    console.log(`音声ロード完了: ${url}`);
+                } catch (error) {
+                    console.error(`音声ロード失敗: ${url}`, error);
+                    // エラーメッセージをより具体的に修正
+                    messageDisplay.textContent = `エラー: 音声ファイル '${url}' のロードに失敗しました。ファイルパスを確認してください。`;
+                    // エラーがあっても他の音はロードを続ける
+                }
+            }
+            messageDisplay.textContent = "準備完了！";
+            playButton.disabled = false; // 準備完了したらボタンを有効化
+            playButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        // ボタンクリック時の処理
+        playButton.addEventListener('click', () => {
+            playRandomEntrySound();
+        });
+
+        // ランダムな入店音を再生する関数
+        function playRandomEntrySound() {
+            if (entrySoundUrls.length === 0) {
+                messageDisplay.textContent = "エラー: 再生する音声が登録されていません。";
+                console.error("エラー: 再生する音声が登録されていません。");
+                return;
+            }
+
+            // 現在再生中の音があれば停止して巻き戻す
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0; // 再生位置を最初に戻す
+            }
+
+            // リストからランダムにURLを選択
+            const randomIndex = Math.floor(Math.random() * entrySoundUrls.length);
+            const selectedUrl = entrySoundUrls[randomIndex];
+            console.log(`選択された音声URL: ${selectedUrl}`); // どのURLが選ばれたかログに出力
+
+            // 事前ロードしたAudioオブジェクトがあればそれを使用、なければ新しく作成
+            const audioToPlay = loadedAudios[selectedUrl] || new Audio(selectedUrl);
+            currentAudio = audioToPlay; // 現在のAudioオブジェクトを更新
+
+            audioToPlay.volume = 0.8; // 音量 (0.0〜1.0)
+
+            audioToPlay.play()
+                .then(() => {
+                    messageDisplay.textContent = `再生中: ${selectedUrl.split('/').pop()}`; // ファイル名のみ表示
+                    console.log(`再生中: ${selectedUrl}`);
+                })
+                .catch(error => {
+                    messageDisplay.textContent = `エラー: 再生できませんでした (${selectedUrl.split('/').pop()})`;
+                    console.error(`音声再生エラー: ${selectedUrl}`, error);
+                });
+        }
+
+        // ページロード時に音声を事前ロード
+        preloadSounds();
+
+    </script>
+</body>
+</html>
