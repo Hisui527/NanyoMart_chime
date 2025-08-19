@@ -32,32 +32,58 @@
         <button id="togglePlayButton"
                 class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold py-5 px-10 rounded-full text-2xl
                        shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition duration-300 ease-in-out
-                       focus:outline-none focus:ring-4 focus:ring-blue-300 active:bg-indigo-700">
+                       focus:outline-none focus:ring-4 focus:ring-blue-300 active:bg-indigo-700 mb-6">
             自動再生オフ
         </button>
+
+        <div class="mt-8">
+            <h2 class="text-xl font-bold text-gray-700 mb-2">自動再生頻度の設定</h2>
+            <div class="flex items-center justify-center space-x-2">
+                <select id="intervalSelect"
+                        class="p-2 text-center text-gray-800 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                    </select>
+                <span class="text-gray-600 font-medium">秒ごと</span>
+            </div>
+        </div>
 
         <p id="message" class="mt-6 text-lg text-gray-600"></p>
     </div>
 
     <script>
         // 再生したい音声ファイルのURLリスト
+        // !!重要!!: ここにあなたの音声ファイル名（例: "FamilyMart.mp3"）を記述してください。
+        // ファイルはindex.htmlと同じフォルダに置いてください。
         const entrySoundUrls = [
             "SEVEN-ELEVEN.mp3",
             "LAWSON.mp3",
             "FamilyMart.mp3"
         ];
 
-        // 1. 各要素を取得
+        // 各要素を取得
         const singlePlayButton = document.getElementById('singlePlayButton');
         const togglePlayButton = document.getElementById('togglePlayButton');
         const messageDisplay = document.getElementById('message');
+        const intervalSelect = document.getElementById('intervalSelect');
 
-        // 2. 自動再生用の状態管理変数
+        // 自動再生用の状態管理変数
         let intervalId = null;
         let isPlaying = false;
-        let currentAudio = null; // 現在再生中のAudioオブジェクトを保持
+        let currentAudio = null;
 
-        // 3. 音声ファイルを事前にロード
+        // 頻度の選択肢を動的に生成
+        function createIntervalOptions() {
+            for (let i = 5; i <= 60; i += 5) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                intervalSelect.appendChild(option);
+            }
+            // デフォルトで30秒を選択しておく
+            intervalSelect.value = 30;
+        }
+        createIntervalOptions();
+
+        // 音声ファイルを事前にロード（オプションだが推奨）
         const loadedAudios = {};
         async function preloadSounds() {
             messageDisplay.textContent = "音声を準備中...";
@@ -78,7 +104,7 @@
                     console.log(`音声ロード完了: ${url}`);
                 } catch (error) {
                     console.error(`音声ロード失敗: ${url}`, error);
-                    messageDisplay.textContent = `エラー: 音声ファイル '${url}' のロードに失敗しました。`;
+                    messageDisplay.textContent = `エラー: 音声ファイル '${url}' のロードに失敗しました。ファイルパスを確認してください。`;
                 }
             }
             
@@ -89,7 +115,7 @@
             togglePlayButton.classList.remove('opacity-50', 'cursor-not-allowed');
         }
 
-        // 4. ランダムな入店音を再生する関数
+        // ランダムな入店音を再生する関数
         function playRandomEntrySound() {
             if (entrySoundUrls.length === 0) {
                 messageDisplay.textContent = "エラー: 再生する音声が登録されていません。";
@@ -104,7 +130,7 @@
 
             const randomIndex = Math.floor(Math.random() * entrySoundUrls.length);
             const selectedUrl = entrySoundUrls[randomIndex];
-
+            
             const audioToPlay = loadedAudios[selectedUrl] || new Audio(selectedUrl);
             currentAudio = audioToPlay;
 
@@ -120,11 +146,10 @@
                 });
         }
         
-        // --- 5. 各ボタンのイベントリスナー ---
+        // --- 各ボタンのイベントリスナー ---
 
         // 「一回だけ鳴らす」ボタン
         singlePlayButton.addEventListener('click', () => {
-            // 自動再生がオンならオフにする
             if (isPlaying) {
                 toggleStop();
             }
@@ -134,30 +159,35 @@
         // 「自動再生オン/オフ」ボタン
         togglePlayButton.addEventListener('click', () => {
             if (!isPlaying) {
-                // 自動再生を開始
                 toggleStart();
             } else {
-                // 自動再生を停止
                 toggleStop();
             }
         });
 
         // 自動再生を開始する関数
         function toggleStart() {
-            playRandomEntrySound(); // ボタン押下時に一度再生
-            intervalId = setInterval(playRandomEntrySound, 30000); // 30秒ごとに再生
-            isPlaying = true;
-            togglePlayButton.textContent = '自動再生オン';
-            togglePlayButton.classList.add('active');
+            const selectedInterval = intervalSelect.value;
+            
+            if (selectedInterval > 0) {
+                playRandomEntrySound();
+                intervalId = setInterval(playRandomEntrySound, selectedInterval * 1000);
+                
+                isPlaying = true;
+                togglePlayButton.textContent = '自動再生オン';
+                togglePlayButton.classList.add('active');
+                messageDisplay.textContent = `${selectedInterval}秒ごとに自動再生を開始しました。`;
+            } else {
+                messageDisplay.textContent = "エラー: 無効な間隔です。";
+            }
         }
 
         // 自動再生を停止する関数
         function toggleStop() {
-            clearInterval(intervalId); // タイマーを停止
+            clearInterval(intervalId);
             isPlaying = false;
             togglePlayButton.textContent = '自動再生オフ';
             togglePlayButton.classList.remove('active');
-            // 必要に応じてメッセージをリセット
             messageDisplay.textContent = "準備完了！";
         }
 
