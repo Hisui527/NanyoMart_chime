@@ -51,8 +51,7 @@
 
     <script>
         // 再生したい音声ファイルのURLリスト
-        // !!重要!!: ここにあなたの音声ファイル名（例: "FamilyMart.mp3"）を記述してください。
-        // ファイルはindex.htmlと同じフォルダに置いてください。
+        // !!重要!!: ここにあなたの音声ファイル名を記述してください。
         const entrySoundUrls = [
             "クラミラver.mp3",
             "通常入店音1.mp3",
@@ -117,33 +116,36 @@
 
         // ランダムな入店音を再生する関数
         function playRandomEntrySound() {
-            if (entrySoundUrls.length === 0) {
-                messageDisplay.textContent = "エラー: 再生する音声が登録されていません。";
-                console.error("エラー: 再生する音声が登録されていません。");
-                return;
-            }
+            return new Promise((resolve, reject) => {
+                if (entrySoundUrls.length === 0) {
+                    messageDisplay.textContent = "エラー: 再生する音声が登録されていません。";
+                    reject(new Error("No audio files configured."));
+                    return;
+                }
 
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio.currentTime = 0;
-            }
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                }
 
-            const randomIndex = Math.floor(Math.random() * entrySoundUrls.length);
-            const selectedUrl = entrySoundUrls[randomIndex];
-            
-            const audioToPlay = loadedAudios[selectedUrl] || new Audio(selectedUrl);
-            currentAudio = audioToPlay;
+                const randomIndex = Math.floor(Math.random() * entrySoundUrls.length);
+                const selectedUrl = entrySoundUrls[randomIndex];
+                
+                const audioToPlay = loadedAudios[selectedUrl] || new Audio(selectedUrl);
+                currentAudio = audioToPlay;
 
-            audioToPlay.volume = 0.8;
+                audioToPlay.volume = 0.8;
 
-            audioToPlay.play()
-                .then(() => {
-                    messageDisplay.textContent = `再生中: ${selectedUrl.split('/').pop()}`;
-                })
-                .catch(error => {
-                    messageDisplay.textContent = `エラー: 再生できませんでした (${selectedUrl.split('/').pop()})`;
-                    console.error(`音声再生エラー: ${selectedUrl}`, error);
-                });
+                audioToPlay.play()
+                    .then(() => {
+                        messageDisplay.textContent = `再生中: ${selectedUrl.split('/').pop()}`;
+                        resolve(audioToPlay);
+                    })
+                    .catch(error => {
+                        messageDisplay.textContent = `エラー: 再生できませんでした (${selectedUrl.split('/').pop()})`;
+                        reject(error);
+                    });
+            });
         }
         
         // --- 各ボタンのイベントリスナー ---
@@ -165,26 +167,45 @@
             }
         });
 
-        // 自動再生を開始する関数
+        // 自動再生を開始する関数 (ここが修正された部分です)
         function toggleStart() {
             const selectedInterval = intervalSelect.value;
             
             if (selectedInterval > 0) {
-                playRandomEntrySound();
-                intervalId = setInterval(playRandomEntrySound, selectedInterval * 1000);
-                
+                // 自動再生オンの見た目に変更
                 isPlaying = true;
                 togglePlayButton.textContent = '自動再生オン';
                 togglePlayButton.classList.add('active');
-                messageDisplay.textContent = `${selectedInterval}秒ごとに自動再生を開始しました。`;
+                
+                // 初回の再生を開始し、その後に次の再生を予約
+                playAndScheduleNextSound();
             } else {
                 messageDisplay.textContent = "エラー: 無効な間隔です。";
             }
         }
+        
+        // 音声を再生し、次に再生するタイミングを予約する関数
+        function playAndScheduleNextSound() {
+            playRandomEntrySound()
+                .then(audio => {
+                    const selectedInterval = intervalSelect.value;
+                    if (isPlaying) {
+                        // 次の再生をsetTimeoutで予約
+                        intervalId = setTimeout(playAndScheduleNextSound, selectedInterval * 1000);
+                    }
+                })
+                .catch(error => {
+                    // 再生エラーが発生した場合、5秒後に再試行
+                    console.error("Playback error:", error);
+                    if (isPlaying) {
+                        intervalId = setTimeout(playAndScheduleNextSound, 5000);
+                    }
+                });
+        }
 
-        // 自動再生を停止する関数
+        // 自動再生を停止する関数 (ここも修正されています)
         function toggleStop() {
-            clearInterval(intervalId);
+            clearTimeout(intervalId);
             isPlaying = false;
             togglePlayButton.textContent = '自動再生オフ';
             togglePlayButton.classList.remove('active');
